@@ -10,6 +10,7 @@ import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -34,9 +35,10 @@ public class RegisterActivity extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-    private TextInputEditText emailInput, passwordInput, confirmPasswordInput;
-    private MaterialButton uploadButton, registerButton, loginLink;
-    private ImageView previewImage;
+    private TextInputEditText nameInput, emailInput, passwordInput, confirmPasswordInput;
+    private MaterialButton selectImageButton, registerButton, loginLink;
+    private ImageView faceImageView;
+    private TextView faceImagePlaceholder;
     private Uri selectedImageUri;
 
     private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
@@ -45,8 +47,8 @@ public class RegisterActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     selectedImageUri = result.getData().getData();
                     if (selectedImageUri != null) {
-                        previewImage.setImageURI(selectedImageUri);
-                        previewImage.setVisibility(ImageView.VISIBLE);
+                        faceImageView.setImageURI(selectedImageUri);
+                        faceImageView.setVisibility(ImageView.VISIBLE);
                     }
                 }
             });
@@ -60,16 +62,18 @@ public class RegisterActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         // Initialize views
+        nameInput = findViewById(R.id.nameInput);
         emailInput = findViewById(R.id.emailInput);
         passwordInput = findViewById(R.id.passwordInput);
         confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
-        uploadButton = findViewById(R.id.uploadButton);
-        previewImage = findViewById(R.id.previewImage);
+        selectImageButton = findViewById(R.id.selectImageButton);
+        faceImageView = findViewById(R.id.faceImageView);
+        faceImagePlaceholder = findViewById(R.id.faceImagePlaceholder);
         registerButton = findViewById(R.id.registerButton);
         loginLink = findViewById(R.id.loginLink);
 
         // Set click listeners
-        uploadButton.setOnClickListener(v -> selectImage());
+        selectImageButton.setOnClickListener(v -> selectImage());
         registerButton.setOnClickListener(v -> registerUser());
         loginLink.setOnClickListener(v -> {
             Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
@@ -120,11 +124,16 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void registerUser() {
+        String name = nameInput.getText().toString().trim();
         String email = emailInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
         String confirmPassword = confirmPasswordInput.getText().toString().trim();
 
         // Validate inputs
+        if (name.isEmpty()) {
+            nameInput.setError("Vui lòng nhập họ và tên");
+            return;
+        }
         if (email.isEmpty()) {
             emailInput.setError("Vui lòng nhập email");
             return;
@@ -142,7 +151,7 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
         if (selectedImageUri == null) {
-            Toast.makeText(this, "Vui lòng tải ảnh khuôn mặt lên", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Vui lòng chọn ảnh khuôn mặt", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -161,6 +170,7 @@ public class RegisterActivity extends AppCompatActivity {
                             // Save user data to Firestore
                             String userId = mAuth.getCurrentUser().getUid();
                             Map<String, Object> userData = new HashMap<>();
+                            userData.put("name", name);
                             userData.put("email", email);
                             userData.put("image", base64Image);
 

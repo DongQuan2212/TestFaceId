@@ -11,8 +11,11 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -38,11 +41,38 @@ public class FaceVerificationActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int PICK_IMAGE_REQUEST = 1;
     private ImageView selectedImageView;
+    private TextView selectedImagePlaceholder;
     private MaterialButton selectImageButton;
     private MaterialButton verifyButton;
     private String referenceImageBase64;
     private Bitmap selectedImageBitmap;
     private Bitmap referenceImageBitmap;
+    private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri selectedImageUri = result.getData().getData();
+                    if (selectedImageUri != null) {
+                        try {
+                            // Convert URI to Bitmap
+                            InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
+                            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                            inputStream.close();
+
+                            if (bitmap != null) {
+                                selectedImageBitmap = bitmap;
+                                selectedImageView.setImageBitmap(bitmap);
+                                selectedImageView.setVisibility(ImageView.VISIBLE);
+                                selectedImagePlaceholder.setVisibility(TextView.GONE);
+                            } else {
+                                Toast.makeText(this, "Không thể đọc ảnh", Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (IOException e) {
+                            Toast.makeText(this, "Lỗi khi đọc ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +89,7 @@ public class FaceVerificationActivity extends AppCompatActivity {
 
         // Khởi tạo views
         selectedImageView = findViewById(R.id.selectedImageView);
+        selectedImagePlaceholder = findViewById(R.id.selectedImagePlaceholder);
         selectImageButton = findViewById(R.id.selectImageButton);
         verifyButton = findViewById(R.id.verifyButton);
 
@@ -124,34 +155,7 @@ public class FaceVerificationActivity extends AppCompatActivity {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        startActivityForResult(intent, PICK_IMAGE_REQUEST);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-            Uri selectedImageUri = data.getData();
-            if (selectedImageUri != null) {
-                try {
-                    // Lấy quyền truy cập URI
-                    getContentResolver().takePersistableUriPermission(selectedImageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    
-                    // Chuyển đổi URI thành Bitmap
-                    InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
-                    selectedImageBitmap = BitmapFactory.decodeStream(inputStream);
-                    
-                    // Hiển thị ảnh đã chọn
-                    selectedImageView.setImageBitmap(selectedImageBitmap);
-                    selectedImageView.setVisibility(ImageView.VISIBLE);
-                    
-                    Toast.makeText(this, "Đã chọn ảnh thành công", Toast.LENGTH_SHORT).show();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    Toast.makeText(this, "Lỗi khi tải ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            }
-        }
+        imagePickerLauncher.launch(intent);
     }
 
     private float calculateFaceSimilarity(Face face1, Face face2) {
@@ -159,23 +163,27 @@ public class FaceVerificationActivity extends AppCompatActivity {
         PointF[] landmarks1 = new PointF[]{
                 face1.getLandmark(FaceLandmark.LEFT_EYE).getPosition(),
                 face1.getLandmark(FaceLandmark.RIGHT_EYE).getPosition(),
+                face1.getLandmark(FaceLandmark.LEFT_EAR).getPosition(),
+                face1.getLandmark(FaceLandmark.RIGHT_EAR).getPosition(),
+                face1.getLandmark(FaceLandmark.NOSE_BASE).getPosition(),
                 face1.getLandmark(FaceLandmark.MOUTH_LEFT).getPosition(),
                 face1.getLandmark(FaceLandmark.MOUTH_RIGHT).getPosition(),
-                face1.getLandmark(FaceLandmark.NOSE_BASE).getPosition(),
+                face1.getLandmark(FaceLandmark.MOUTH_BOTTOM).getPosition(),
                 face1.getLandmark(FaceLandmark.LEFT_CHEEK).getPosition(),
-                face1.getLandmark(FaceLandmark.RIGHT_CHEEK).getPosition(),
-                face1.getLandmark(FaceLandmark.MOUTH_BOTTOM).getPosition()
+                face1.getLandmark(FaceLandmark.RIGHT_CHEEK).getPosition()
         };
 
         PointF[] landmarks2 = new PointF[]{
                 face2.getLandmark(FaceLandmark.LEFT_EYE).getPosition(),
                 face2.getLandmark(FaceLandmark.RIGHT_EYE).getPosition(),
+                face2.getLandmark(FaceLandmark.LEFT_EAR).getPosition(),
+                face2.getLandmark(FaceLandmark.RIGHT_EAR).getPosition(),
+                face2.getLandmark(FaceLandmark.NOSE_BASE).getPosition(),
                 face2.getLandmark(FaceLandmark.MOUTH_LEFT).getPosition(),
                 face2.getLandmark(FaceLandmark.MOUTH_RIGHT).getPosition(),
-                face2.getLandmark(FaceLandmark.NOSE_BASE).getPosition(),
+                face2.getLandmark(FaceLandmark.MOUTH_BOTTOM).getPosition(),
                 face2.getLandmark(FaceLandmark.LEFT_CHEEK).getPosition(),
-                face2.getLandmark(FaceLandmark.RIGHT_CHEEK).getPosition(),
-                face2.getLandmark(FaceLandmark.MOUTH_BOTTOM).getPosition()
+                face2.getLandmark(FaceLandmark.RIGHT_CHEEK).getPosition()
         };
 
         // Tính toán tỷ lệ kích thước khuôn mặt
@@ -183,6 +191,14 @@ public class FaceVerificationActivity extends AppCompatActivity {
         float face1Height = face1.getBoundingBox().height();
         float face2Width = face2.getBoundingBox().width();
         float face2Height = face2.getBoundingBox().height();
+
+        // So sánh tỷ lệ khuôn mặt
+        float aspectRatio1 = face1Width / face1Height;
+        float aspectRatio2 = face2Width / face2Height;
+        float aspectRatioDiff = Math.abs(aspectRatio1 - aspectRatio2);
+        if (aspectRatioDiff > 0.2f) { // Nếu tỷ lệ khuôn mặt chênh lệch quá 20%
+            return 0.0f;
+        }
 
         float scaleX = face1Width / face2Width;
         float scaleY = face1Height / face2Height;
@@ -213,7 +229,7 @@ public class FaceVerificationActivity extends AppCompatActivity {
 
         // Tính điểm tương đồng (0-1)
         float averageDistance = totalDistance / landmarks1.length;
-        float maxAllowedDistance = Math.min(face1Width, face1Height) * 0.12f; // Giảm xuống 12% kích thước khuôn mặt
+        float maxAllowedDistance = Math.min(face1Width, face1Height) * 0.05f; // Giảm xuống 5% kích thước khuôn mặt
         
         // Tính độ lệch chuẩn của khoảng cách
         float variance = 0;
@@ -224,20 +240,74 @@ public class FaceVerificationActivity extends AppCompatActivity {
         variance /= distances.length;
         float stdDev = (float) Math.sqrt(variance);
         
-        // Áp dụng phạt cho độ lệch chuẩn
-        float stdDevPenalty = 1 - (stdDev / maxAllowedDistance);
+        // Áp dụng phạt cho độ lệch chuẩn nghiêm ngặt hơn
+        float stdDevPenalty = 1 - (stdDev / (maxAllowedDistance * 0.5f));
         
         // Tính điểm tương đồng cơ bản
         float baseSimilarity = 1 - (averageDistance / maxAllowedDistance);
         
-        // Áp dụng phạt cho khoảng cách tối đa
-        float maxDistancePenalty = 1 - (maxDistance / (maxAllowedDistance * 1.5f));
+        // Áp dụng phạt cho khoảng cách tối đa nghiêm ngặt hơn
+        float maxDistancePenalty = 1 - (maxDistance / (maxAllowedDistance * 1.2f));
         
-        // Kết hợp các yếu tố để tính điểm tương đồng cuối cùng
+        // So sánh các đặc điểm khuôn mặt
+        float eyeDistance1 = calculateDistance(landmarks1[0], landmarks1[1]); // Khoảng cách giữa 2 mắt
+        float eyeDistance2 = calculateDistance(normalizedLandmarks2[0], normalizedLandmarks2[1]);
+        float eyeDistanceRatio = Math.min(eyeDistance1, eyeDistance2) / Math.max(eyeDistance1, eyeDistance2);
+        
+        float noseToMouthDistance1 = calculateDistance(landmarks1[4], landmarks1[7]); // Khoảng cách từ mũi đến miệng
+        float noseToMouthDistance2 = calculateDistance(normalizedLandmarks2[4], normalizedLandmarks2[7]);
+        float noseToMouthRatio = Math.min(noseToMouthDistance1, noseToMouthDistance2) / 
+                                Math.max(noseToMouthDistance1, noseToMouthDistance2);
+
+        // Tính điểm tương đồng cho các nhóm điểm mốc quan trọng với trọng số mới
+        float eyeSimilarity = calculateGroupSimilarity(landmarks1, normalizedLandmarks2, 0, 1);
+        float mouthSimilarity = calculateGroupSimilarity(landmarks1, normalizedLandmarks2, 5, 7);
+        float faceOutlineSimilarity = calculateGroupSimilarity(landmarks1, normalizedLandmarks2, 2, 3);
+        float noseSimilarity = calculateGroupSimilarity(landmarks1, normalizedLandmarks2, 4, 4);
+        
+        // Kết hợp các yếu tố với trọng số mới
         float similarity = baseSimilarity * maxDistancePenalty * stdDevPenalty;
+        similarity = (similarity * 0.2f) + // Giảm trọng số của điểm tương đồng cơ bản
+                    (eyeSimilarity * 0.25f) + // Tăng trọng số cho mắt
+                    (mouthSimilarity * 0.2f) +
+                    (noseSimilarity * 0.2f) + // Thêm trọng số cho mũi
+                    (faceOutlineSimilarity * 0.15f);
+
+        // Áp dụng hệ số phạt cho tỷ lệ khoảng cách
+        similarity *= eyeDistanceRatio * noseToMouthRatio;
 
         // Đảm bảo điểm tương đồng nằm trong khoảng 0-1
-        return Math.max(0, Math.min(1, similarity));
+        similarity = Math.max(0, Math.min(1, similarity));
+
+        // Áp dụng ngưỡng tối thiểu nghiêm ngặt hơn
+        if (similarity < 0.7f) {
+            similarity *= 0.5f; // Giảm một nửa điểm cho các trường hợp dưới ngưỡng
+        }
+
+        return similarity;
+    }
+
+    private float calculateDistance(PointF p1, PointF p2) {
+        float dx = p1.x - p2.x;
+        float dy = p1.y - p2.y;
+        return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private float calculateGroupSimilarity(PointF[] landmarks1, PointF[] landmarks2, int startIndex, int endIndex) {
+        float totalDistance = 0;
+        int count = 0;
+        
+        for (int i = startIndex; i <= endIndex; i++) {
+            float dx = landmarks1[i].x - landmarks2[i].x;
+            float dy = landmarks1[i].y - landmarks2[i].y;
+            totalDistance += Math.sqrt(dx * dx + dy * dy);
+            count++;
+        }
+        
+        float averageDistance = totalDistance / count;
+        float maxAllowedDistance = 30; // Giảm ngưỡng khoảng cách tối đa
+        
+        return Math.max(0, 1 - (averageDistance / maxAllowedDistance));
     }
 
     private void verifyFace(Bitmap selectedImage, Bitmap referenceImage) {
@@ -319,6 +389,34 @@ public class FaceVerificationActivity extends AppCompatActivity {
                 openImagePicker();
             } else {
                 Toast.makeText(this, "Cần quyền truy cập thư viện ảnh để chọn ảnh", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
+            Uri selectedImageUri = data.getData();
+            if (selectedImageUri != null) {
+                try {
+                    // Lấy quyền truy cập URI
+                    getContentResolver().takePersistableUriPermission(selectedImageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    
+                    // Chuyển đổi URI thành Bitmap
+                    InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
+                    selectedImageBitmap = BitmapFactory.decodeStream(inputStream);
+                    
+                    // Hiển thị ảnh đã chọn
+                    selectedImageView.setImageBitmap(selectedImageBitmap);
+                    selectedImageView.setVisibility(ImageView.VISIBLE);
+                    selectedImagePlaceholder.setVisibility(TextView.GONE);
+                    
+                    Toast.makeText(this, "Đã chọn ảnh thành công", Toast.LENGTH_SHORT).show();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Toast.makeText(this, "Lỗi khi tải ảnh: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }

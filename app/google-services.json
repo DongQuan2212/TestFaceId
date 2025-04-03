@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "263202839737",
+    "firebase_url": "https://fir-a2bba-default-rtdb.firebaseio.com",
+    "project_id": "fir-a2bba",
+    "storage_bucket": "fir-a2bba.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263202839737:android:d68fe6387fa744c9608f68",
+        "android_client_info": {
+          "package_name": "hcmute.edu.vn.befinalproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqV_rbvcggzBZUCLX1uOJRdsM8oLrn4Vw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263202839737:android:9aa6cd7ab91b4d00608f68",
+        "android_client_info": {
+          "package_name": "hcmute.edu.vn.healthtrackerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqV_rbvcggzBZUCLX1uOJRdsM8oLrn4Vw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
